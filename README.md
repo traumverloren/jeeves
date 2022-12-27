@@ -115,7 +115,7 @@ The code for the client/servo is in [main.py](main.py)
 
 ## Adafruit QT PY ESP32-S2 Setup
 
-The QT PY ESP32-S2 can be setup using Mu editor and circuitpython. Copy the [qt-py_esp32-s2/code.py](qt-py_esp32-s2/code.py) file to the QT Py and instal the necessary libraries. Pin A2 is used for capacitive touch.
+The QT PY ESP32-S2 can be setup using Mu editor and circuitpython. Copy the [qt-py_esp32-s2/code.py](qt-py_esp32-s2/code.py) file to the QT Py and install the necessary libraries. Pin A2 is used for capacitive touch.
 
 - Create `secrets.py` file on the microcontroller
 
