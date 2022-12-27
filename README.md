@@ -7,7 +7,7 @@ A remote control for answering my building's doorbell.
 
 Living in a flat in Berlin means that access into my building for deliveries/etc is through a main entry where first folks need to ring you through an intercom system to gain access to any of the apartments. A lot of times, this is disruptive for my workflow, my adhd, and my dog's anxiety to break my concentration by getting up to press the button for the building's door, then anxiously waiting the few minutes for the delivery person to knock on my _actual_ door since I feel incapable of sitting down and focusing again in this interim couple of minutes.
 
-So, I decided to create a semi-automated + soft electronics ✨ solution so I can unlock the building's front door from my desk.
+So, I decided to create a semi-automated + _soft electronics_ ✨ solution so I can unlock the building's front door from my desk.
 
 When I hear the door buzzer, I can touch the pompom (which I've hidden a microcontroller inside and attached via conductive thread). This triggers the microcontroller inside to send a message over MQTT. The Pi Zero W is setup as both a MQTT broker (it receives messages & routes them to the clients subscribed to receive messages) and a MQTT client. The MQTT client running on the Pi is subscribed to messages published from the pompom. When the message is routed to this client from the broker, it triggers the servo to move and press the button. ✨
 
