@@ -5,7 +5,7 @@ A remote control for answering my building's doorbell.
 <img src="https://user-images.githubusercontent.com/9959680/209721574-8dd10fd0-cae4-4840-8ed0-b17f029e811a.jpg" width="400" />
 <img src="https://user-images.githubusercontent.com/9959680/209722515-7b1587a9-aeb9-4afe-b661-826bd59c348c.gif" width="400" />
 
-Living in a flat in Berlin means that access into my building for deliveries/etc is through a main entry where first folks need to ring you through an intercom system to gain access to any of the apartments. A lot of times, this is disruptive for my workflow, my adhd, and my dog's anxiety to break my concentration by getting up to press the button for the building's door, then anxiously waiting the few minutes for the delivery person to knock on my _actual_ door since I feel incapable of sitting down and focusing again in this interim couple of minutes.
+Living in a flat in Berlin means that access into my building for deliveries/etc is through a main entry where first folks need to ring you through an intercom system to gain access to any of the apartments. A lot of times, this is disruptive for my workflow, my adhd (& not to mention my dog's anxiety) and breaks my concentration since I need to get up, run to the door, press the button, then anxiously waiting the few minutes for the delivery person to knock on my _actual_ door since I feel incapable of sitting down and focusing again in this interim couple of minutes.
 
 So, I decided to create a semi-automated + _soft electronics_ ✨ solution so I can unlock the building's front door from my desk.
 
