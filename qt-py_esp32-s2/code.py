@@ -1,20 +1,14 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-# SPDX-License-Identifier: MIT
-
+import supervisor
+import microcontroller
+import gc
 import time
+import board
 import ssl
 import socketpool
-import board
 import wifi
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
-import neopixel
 import digitalio
 import touchio
-
-OFF = (0, 0, 0)
-RED = (255, 0, 0)
-WHITE = (50, 50, 50)
-GREEN = (0, 255, 0)
 
 # Add a secrets.py to your filesystem that has a dictionary called secrets with "ssid" and
 # "password" keys with your WiFi credentials. DO NOT share that file or commit it into Git or other
@@ -26,30 +20,40 @@ except ImportError:
     print("WiFi secrets are kept in secrets.py, please add them there!")
     raise
 
-### Code ###
-
-# Remove these two lines on boards without board.NEOPIXEL_POWER.
-np_power = digitalio.DigitalInOut(board.NEOPIXEL_POWER)
-np_power.switch_to_output(value=False)
-np = neopixel.NeoPixel(board.NEOPIXEL, 1)
-np_power.value = True
-np[0] = RED
-
-touch_A2 = touchio.TouchIn(board.A2) 
-touch_A2.threshold = 20000
-
-print("Connecting to %s" % secrets["ssid"])
-wifi.radio.connect(secrets["ssid"], secrets["wifi_pw"])
-print("Connected to %s!" % secrets["ssid"])
-print("My IP address is", wifi.radio.ipv4_address)
-
 # Create a socket pool
 pool = socketpool.SocketPool(wifi.radio)
 
+### Code ###
+touch_A2 = touchio.TouchIn(board.A2)
+touch_A2.threshold = 30000
 is_touched = False
+
+
+def shutdown():
+    client.disconnect()
+    supervisor.reload()
+
+
+def restart_and_reconnect():
+    print("Restarting...")
+    client.disconnect()
+    time.sleep(10)
+    microcontroller.reset()
+
+
+def network_connect():
+    try:
+        print("Connecting to %s" % secrets["ssid"])
+        wifi.radio.connect(secrets["ssid"], secrets["wifi_pw"])
+        print("Connected to %s!" % secrets["ssid"])
+        print("My IP address is", wifi.radio.ipv4_address)
+    except ConnectionError as e:
+        print("Connection Error:", e)
 
 # Define callback methods which are called when events occur
 # pylint: disable=unused-argument, redefined-outer-name
+
+
 def connected(client, userdata, flags, rc):
     # This function will be called when the client is connected
     # successfully to the broker.
@@ -59,41 +63,62 @@ def connected(client, userdata, flags, rc):
 def disconnected(client, userdata, rc):
     print("Disconnected from broker!")
 
-# Set up a MiniMQTT Client
-mqtt_client = MQTT.MQTT(
-    broker=secrets["broker"],
-    port=secrets["port"],
-    username=secrets["user"],
-    password=secrets["pw"],
-    socket_pool=pool,
-    ssl_context=ssl.create_default_context(),
-)
 
-# Setup the callback methods above
-mqtt_client.on_connect = connected
-mqtt_client.on_disconnect = disconnected
+def mqtt_connect():
+    global client
 
-# Connect the client to the MQTT broker.
-print("Connecting to MQTT broker...")
-mqtt_client.connect()
+    # Set up a MiniMQTT Client
+    client = MQTT.MQTT(
+        broker=secrets["broker"],
+        port=secrets["port"],
+        username=secrets["user"],
+        password=secrets["pw"],
+        socket_pool=pool,
+        ssl_context=ssl.create_default_context(),
+        keep_alive=120
+    )
 
-np[0] = GREEN
-time.sleep(1)
-np[0] = OFF
+    # Setup the callback methods above
+    client.on_connect = connected
+    client.on_disconnect = disconnected
+
+    # Connect the client to the MQTT broker.
+    print("Connecting to MQTT broker...")
+    client.connect()
 
 
-while True:
-    # Poll the message queue
-    mqtt_client.loop()
+# start execution
+try:
+    print("Connecting WIFI")
+    network_connect()
+    print("Connecting MQTT")
+    mqtt_connect()
+    last_ping = 0
+    ping_interval = 60
 
-    if touch_A2.value:
-        print("touched!")
-        np[0] = WHITE 
-        
-        # Send a new message
-        print("Answering door...")
-        mqtt_client.publish("doorbell", "open me")
-        print("Sent!")
+    while True:
+        if (time.time() - last_ping) > ping_interval:
+            print("ping broker")
+            client.ping()
+            last_ping = time.time()
 
-        time.sleep(2)
-        np[0] = OFF
+        # Poll the message queue
+        client.loop()
+
+        # print(touch_A2.raw_value)
+        if touch_A2.value:
+            print(touch_A2.value)
+            print("touched!")
+
+            # Send a new message
+            print("Answering door...")
+            client.publish("doorbell", "open me")
+            print("Sent!")
+            time.sleep(2)
+
+        gc.collect()
+
+except KeyboardInterrupt:
+    shutdown()
+except Exception:
+    restart_and_reconnect()
