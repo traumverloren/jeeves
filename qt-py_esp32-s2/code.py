@@ -87,16 +87,22 @@ def mqtt_connect():
     client.connect()
 
 
+last_ping = 0
+ping_interval = 60
+
 # start execution
 try:
     print("Connecting WIFI")
     network_connect()
     print("Connecting MQTT")
     mqtt_connect()
-    last_ping = 0
-    ping_interval = 60
+except KeyboardInterrupt:
+    shutdown()
+except Exception:
+    raise
 
-    while True:
+while True:
+    try:
         if (time.time() - last_ping) > ping_interval:
             print("ping broker")
             client.ping()
@@ -117,8 +123,9 @@ try:
             time.sleep(2)
 
         gc.collect()
-
-except KeyboardInterrupt:
-    shutdown()
-except Exception:
-    restart_and_reconnect()
+        time.sleep(1)
+    except (ValueError, RuntimeError) as e:
+        print("Failed to get data, retrying\n", e)
+        wifi.reset()
+        client.reconnect()
+        continue
