@@ -1,5 +1,4 @@
 import supervisor
-import microcontroller
 import gc
 import time
 import board
@@ -31,14 +30,14 @@ is_touched = False
 
 def shutdown():
     client.disconnect()
-    supervisor.reload()
 
 
 def restart_and_reconnect():
     print("Restarting...")
     client.disconnect()
+    wifi.reset()
     time.sleep(10)
-    microcontroller.reset()
+    supervisor.reload()
 
 
 def network_connect():
@@ -50,10 +49,9 @@ def network_connect():
     except ConnectionError as e:
         print("Connection Error:", e)
 
+
 # Define callback methods which are called when events occur
 # pylint: disable=unused-argument, redefined-outer-name
-
-
 def connected(client, userdata, flags, rc):
     # This function will be called when the client is connected
     # successfully to the broker.
@@ -73,9 +71,10 @@ def mqtt_connect():
         port=secrets["port"],
         username=secrets["user"],
         password=secrets["pw"],
+        client_id=secrets["client_id"],
         socket_pool=pool,
         ssl_context=ssl.create_default_context(),
-        keep_alive=120
+        keep_alive=120,
     )
 
     # Setup the callback methods above
@@ -99,10 +98,12 @@ try:
 except KeyboardInterrupt:
     shutdown()
 except Exception:
+    shutdown()
     raise
 
 while True:
     try:
+        #print("mem start loop:", gc.mem_free())
         if (time.time() - last_ping) > ping_interval:
             print("ping broker")
             client.ping()
@@ -123,9 +124,16 @@ while True:
             time.sleep(2)
 
         gc.collect()
-        time.sleep(1)
+    except KeyboardInterrupt:
+        client.disconnect()
+        break
     except (ValueError, RuntimeError) as e:
-        print("Failed to get data, retrying\n", e)
+        print("Failed to get data,retrying\n", e)
         wifi.reset()
         client.reconnect()
         continue
+    except Exception as e:
+        print("Failed to get data, retrying\n", e)
+        restart_and_reconnect()
+
+    time.sleep(1)
