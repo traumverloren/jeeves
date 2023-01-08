@@ -109,10 +109,7 @@ while True:
             client.ping()
             last_ping = time.time()
 
-        # Poll the message queue
-        client.loop()
-
-        # print(touch_A2.raw_value)
+        print(touch_A2.raw_value)
         if touch_A2.value:
             print(touch_A2.value)
             print("touched!")
@@ -122,6 +119,9 @@ while True:
             client.publish("doorbell", "open me")
             print("Sent!")
             time.sleep(2)
+
+        # Poll the message queue
+        client.loop()
 
         gc.collect()
     except KeyboardInterrupt:
@@ -135,5 +135,3 @@ while True:
     except Exception as e:
         print("Failed to get data, retrying\n", e)
         restart_and_reconnect()
-
-    time.sleep(1)
