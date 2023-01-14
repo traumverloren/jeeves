@@ -6,6 +6,8 @@ import ssl
 import socketpool
 import wifi
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
+from adafruit_minimqtt.adafruit_minimqtt import MMQTTException
+
 import digitalio
 import touchio
 
@@ -32,12 +34,10 @@ def shutdown():
     client.disconnect()
 
 
-def restart_and_reconnect():
+def reconnect():
     print("Restarting...")
-    client.disconnect()
-    wifi.reset()
-    time.sleep(10)
-    supervisor.reload()
+    network_connect()
+    client.reconnect()
 
 
 def network_connect():
@@ -87,7 +87,7 @@ def mqtt_connect():
 
 
 last_ping = 0
-ping_interval = 60
+ping_interval = 120
 
 # start execution
 try:
@@ -109,7 +109,7 @@ while True:
             client.ping()
             last_ping = time.time()
 
-        print(touch_A2.raw_value)
+        # print(touch_A2.raw_value)
         if touch_A2.value:
             print(touch_A2.value)
             print("touched!")
@@ -127,11 +127,11 @@ while True:
     except KeyboardInterrupt:
         client.disconnect()
         break
-    except (ValueError, RuntimeError) as e:
-        print("Failed to get data,retrying\n", e)
-        wifi.reset()
-        client.reconnect()
+    except (ValueError, OSError, RuntimeError, MMQTTException) as e:
+        print("ValueError, OSError, RuntimeError, MMQTTException: Failed to get data,retrying\n", e)
+        reconnect()
         continue
     except Exception as e:
         print("Failed to get data, retrying\n", e)
-        restart_and_reconnect()
+        reconnect()
+        continue
