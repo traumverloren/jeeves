@@ -1,66 +1,44 @@
-import supervisor
-import gc
-import time
+import alarm
 import board
+import time
 import ssl
 import socketpool
 import wifi
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
 from adafruit_minimqtt.adafruit_minimqtt import MMQTTException
 
-import digitalio
-import touchio
+# Must degrade to circuitpython 7.1.0 to use touchalarm
 
-# Add a secrets.py to your filesystem that has a dictionary called secrets with "ssid" and
-# "password" keys with your WiFi credentials. DO NOT share that file or commit it into Git or other
-# source control.
-# pylint: disable=no-name-in-module,wrong-import-order
+# Get wifi details and more from a secrets.py file
 try:
     from secrets import secrets
 except ImportError:
     print("WiFi secrets are kept in secrets.py, please add them there!")
     raise
-
+    
 # Create a socket pool
 pool = socketpool.SocketPool(wifi.radio)
 
-### Code ###
-touch_A2 = touchio.TouchIn(board.A2)
-touch_A2.threshold = 30000
-is_touched = False
 
+# Create an alarm that will trigger if pin is touched.
+touch_alarm = alarm.touch.TouchAlarm(pin=board.A2)
 
-def shutdown():
-    client.disconnect()
-
-
-def reconnect():
-    print("Restarting...")
-    network_connect()
-    client.reconnect()
-
+# Print out which alarm woke us up, if any.
+print(alarm.wake_alarm)
 
 def network_connect():
-    try:
-        print("Connecting to %s" % secrets["ssid"])
-        wifi.radio.connect(secrets["ssid"], secrets["wifi_pw"])
-        print("Connected to %s!" % secrets["ssid"])
-        print("My IP address is", wifi.radio.ipv4_address)
-    except ConnectionError as e:
-        print("Connection Error:", e)
+    print("Connecting to %s"%secrets["ssid"])
+    wifi.radio.connect(secrets["ssid"], secrets["wifi_pw"])
+    print("Connected to %s!"%secrets["ssid"])
+    print("My IP address is", wifi.radio.ipv4_address)
 
-
-# Define callback methods which are called when events occur
-# pylint: disable=unused-argument, redefined-outer-name
 def connected(client, userdata, flags, rc):
     # This function will be called when the client is connected
     # successfully to the broker.
     print("Connected to broker!")
 
-
 def disconnected(client, userdata, rc):
     print("Disconnected from broker!")
-
 
 def mqtt_connect():
     global client
@@ -74,7 +52,7 @@ def mqtt_connect():
         client_id=secrets["client_id"],
         socket_pool=pool,
         ssl_context=ssl.create_default_context(),
-        keep_alive=120,
+        keep_alive=60,
     )
 
     # Setup the callback methods above
@@ -85,53 +63,19 @@ def mqtt_connect():
     print("Connecting to MQTT broker...")
     client.connect()
 
+print("Connecting WIFI")
+network_connect()
+print("Connecting MQTT")
+mqtt_connect()
 
-last_ping = 0
-ping_interval = 120
+# Send a new message
+print("Answering door...")
+if alarm.wake_alarm:
+    client.publish("doorbell", "open me")
+print("Sent!")
+client.disconnect()
+time.sleep(2)
 
-# start execution
-try:
-    print("Connecting WIFI")
-    network_connect()
-    print("Connecting MQTT")
-    mqtt_connect()
-except KeyboardInterrupt:
-    shutdown()
-except Exception:
-    shutdown()
-    raise
-
-while True:
-    try:
-        #print("mem start loop:", gc.mem_free())
-        if (time.time() - last_ping) > ping_interval:
-            print("ping broker")
-            client.ping()
-            last_ping = time.time()
-
-        # print(touch_A2.raw_value)
-        if touch_A2.value:
-            print(touch_A2.value)
-            print("touched!")
-
-            # Send a new message
-            print("Answering door...")
-            client.publish("doorbell", "open me")
-            print("Sent!")
-            time.sleep(2)
-
-        # Poll the message queue
-        client.loop()
-
-        gc.collect()
-    except KeyboardInterrupt:
-        client.disconnect()
-        break
-    except (ValueError, OSError, RuntimeError, MMQTTException) as e:
-        print("ValueError, OSError, RuntimeError, MMQTTException: Failed to get data,retrying\n", e)
-        reconnect()
-        continue
-    except Exception as e:
-        print("Failed to get data, retrying\n", e)
-        reconnect()
-        continue
+# Exit the program, and then deep sleep until one of the alarms wakes us.
+alarm.exit_and_deep_sleep_until_alarms(touch_alarm)
+# Does not return, so we never get here.
